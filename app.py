@@ -1,62 +1,202 @@
-from flask import Flask, render_template, request, redirect
-from flask_sqlalchemy import SQLAlchemy
+"""
+from flask import Flask
+import tabula
+import PyPDF2
+import urllib.request
+import io
+import json
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///musicas.sqlite3'
-db = SQLAlchemy(app)
+"""
 
-class Musica(db.Model):
-   id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-   nome = db.Column(db.String(150), nullable=False)
-   artista = db.Column(db.String(150), nullable=False)
-   link = db.Column(db.String(300), nullable=False)
+# -*- coding: utf-8 -*-
+from flask import Flask, request, url_for, jsonify
 
-   def __init__(self, nome, artista, link):
-      self.nome = nome
-      self.artista = artista
-      self.link = link
+import tabula
+import PyPDF2
+import urllib.request
+import io
+import json
+app = Flask(__name__)
+
+
+notes = {
+    0: 'do the shopping',
+    1: 'build the codez',
+    2: 'paint the door',
+}
+
+
+def learnPdfFrutasOutputJson():
+    pdf_frutas = "https://files.ceasa-ce.com.br/unsima/boletim_diario/tiangua/frutas_tia.pdf"
+
+    data_frutas = tabula.read_pdf(
+        pdf_frutas, output_format="json", pages='all')
+    return data_frutas[0]['data']
+
+
+def learnPdfHortalicasOutputJson():
+    pdf_frutas = "https://files.ceasa-ce.com.br/unsima/boletim_diario/tiangua/hortalicas_tia.pdf"
+
+    data_frutas = tabula.read_pdf(
+        pdf_frutas, output_format="json", pages='all')
+    return data_frutas[0]['data']
+
+
+def pegarData():
+    URL = 'https://files.ceasa-ce.com.br/unsima/boletim_diario/tiangua/frutas_tia.pdf'
+
+    req = urllib.request.Request(URL, headers={'User-Agent': "Magic Browser"})
+    remote_file = urllib.request.urlopen(req).read()
+    remote_file_bytes = io.BytesIO(remote_file)
+    pdfdoc_remote = PyPDF2.PdfFileReader(remote_file_bytes)
+    p = pdfdoc_remote.getPage(0)
+    text = p.extractText()
+    pos = text.find('BOLETIM')
+    strdate = text[pos:pos+43]
+    test = strdate.split()
+    dia = test[4]
+    separa = test[5].split('/')
+    dia = dia + separa[0]
+    mes = separa[1]
+    ano = separa[2]
+    return dia + '/' + mes + '/' + ano
+
+
+def retornaJson():
+    text = []
+    data = []
+    i = 0
+
+    for texto in learnPdfFrutasOutputJson():
+
+        i += 1
+        text.append({
+            "id": i, "nome": texto[0]['text'], 'und': texto[1]['text'], 'sit': texto[2]['text'], 'min': texto[3]['text'], 'mc': texto[4]['text'], 'max': texto[5]['text'], 'procedencia': texto[6]['text']})
+
+    return json.dumps(text)
+
+
+def retornaJsonHortalicas():
+    text = []
+    data = []
+    i = 0
+
+    for texto in learnPdfHortalicasOutputJson():
+
+        i += 1
+        text.append({
+            "id": i, "nome": texto[0]['text'], 'und': texto[1]['text'], 'sit': texto[2]['text'], 'min': texto[3]['text'], 'mc': texto[4]['text'], 'max': texto[5]['text'], 'procedencia': texto[6]['text']})
+
+    text.pop(0)
+    return json.dumps(text)
+
+
+def retornaCotacaoPrecoMorango():
+    text = []
+    i = 0
+
+    for texto in learnPdfFrutasOutputJson():
+
+        i += 1
+        text.append({
+            "id": i, "nome": texto[0]['text'], 'und': texto[1]['text'], 'sit': texto[2]['text'], 'min': texto[3]['text'], 'mc': texto[4]['text'], 'max': texto[5]['text'], 'procedencia': texto[6]['text']})
+
+    return json.dumps(text[74])
+
+
+def retornaCotacaoPrecoPimentacao():
+    text = []
+    data = []
+    i = 0
+
+    for texto in learnPdfHortalicasOutputJson():
+
+        i += 1
+        text.append({
+            "id": i, "nome": texto[0]['text'], 'und': texto[1]['text'], 'sit': texto[2]['text'], 'min': texto[3]['text'], 'mc': texto[4]['text'], 'max': texto[5]['text'], 'procedencia': texto[6]['text']})
+
+    text.pop(0)
+    pimentao = []
+    j = 72
+    while(j < 77):
+        pimentao.append(text[j])
+        j += 1
+    return json.dumps(pimentao)
+
+
+def retornaCotacaoPrecoTomate():
+    text = []
+    data = []
+    i = 0
+
+    for texto in learnPdfHortalicasOutputJson():
+
+        i += 1
+        text.append({
+            "id": i, "nome": texto[0]['text'], 'und': texto[1]['text'], 'sit': texto[2]['text'], 'min': texto[3]['text'], 'mc': texto[4]['text'], 'max': texto[5]['text'], 'procedencia': texto[6]['text']})
+
+    text.pop(0)
+    tomate = []
+    j = 86
+    while(j < 95):
+        tomate.append(text[j])
+        j += 1
+    return json.dumps(tomate)
+
 
 @app.route('/')
-def index():
-   musicas = Musica.query.all()
-   return render_template('index.html', musicas=musicas)
+def main():
+    return ""
 
-@app.route('/<id>')
-def musica_pelo_id(id):
-   musica = Musica.query.get(id)
-   return render_template('index.html', musica=musica)
 
-@app.route('/new', methods=['GET', 'POST'])
-def new():
-   if request.method == 'POST':
-      musica = Musica(
-         request.form['nome'],
-         request.form['artista'],
-         request.form['link']
-      )
-      db.session.add(musica)
-      db.session.commit()
-      return redirect('/#playlist')
-   return render_template('new.html')
+@app.route('/api/cotacaoFrutas', methods=['GET'])
+def cotacaoFrutas():
+    return retornaJson()
 
-@app.route('/edit/<id>', methods=['GET', 'POST'])
-def edit(id):
-   musica = Musica.query.get(id)
-   if request.method == "POST":
-      musica.nome = request.form['nome']
-      musica.artista = request.form['artista']
-      musica.link = request.form['link']
-      db.session.commit()
-      return redirect('/#playlist')
-   return render_template('edit.html', musica=musica)
 
-@app.route('/delete/<id>')
-def delete(id):
-   musica = Musica.query.get(id)
-   db.session.delete(musica)
-   db.session.commit()
-   return redirect('/#playlist')
+@app.route('/api/cotacaoHortalicas', methods=['GET'])
+def cotacaoHortalicas():
+    return retornaJsonHortalicas()
 
-if __name__ == '__main__':
-   db.create_all()
-   app.run(debug=True)
+
+lista = [
+    {
+        "id": u'1',
+        "plat": u'pc',
+        'Nome': u'BFV',
+        'Preco': u'250'
+    },
+    {
+        'id': u'2',
+        'plataforma': u'mobile',
+        'Nome': u'GTA',
+        'Preco': u'5000',
+    }
+]
+
+
+@app.route('/api/cotacaoMorango', methods=['GET'])
+def cotacaoMorangoJson():
+
+    return retornaCotacaoPrecoMorango()
+   # return jsonify({'lista':[lista]})
+
+
+@app.route('/api/cotacaoPimentao', methods=['GET'])
+def cotacaoPimentaoJson():
+    return retornaCotacaoPrecoPimentacao()
+
+
+@app.route('/api/cotacaoTomate', methods=['GET'])
+def cotacaoTomateJson():
+    return retornaCotacaoPrecoTomate()
+
+
+@app.route('/api/data', methods=['GET'])
+def retornaDate():
+    return jsonify({"data": pegarData()})
+
+
+if __name__ == "__main__":
+    app.run(debug=True, use_reloader=True)
